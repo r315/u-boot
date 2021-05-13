@@ -471,6 +471,7 @@ dtb-$(CONFIG_MACH_SUN4I) += \
 	sun4i-a10-hyundai-a7hd.dtb \
 	sun4i-a10-inet1.dtb \
 	sun4i-a10-inet-3f.dtb \
+	sun4i-a10-inet-3ftd.dtb \
 	sun4i-a10-inet-3w.dtb \
 	sun4i-a10-inet97fv2.dtb \
 	sun4i-a10-inet9f-rev03.dtb \
@@ -498,6 +499,7 @@ dtb-$(CONFIG_MACH_SUN5I) += \
 	sun5i-a13-hsg-h702.dtb \
 	sun5i-a13-inet-86vs.dtb \
 	sun5i-a13-inet-98v-rev2.dtb \
+	sun5i-a13-for-fun-q88.dtb \
 	sun5i-a13-olinuxino.dtb \
 	sun5i-a13-olinuxino-micro.dtb \
 	sun5i-a13-q8-tablet.dtb \
