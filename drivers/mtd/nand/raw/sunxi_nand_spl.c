@@ -43,6 +43,7 @@
 
 #define NFC_CTL_EN                 (1 << 0)
 #define NFC_CTL_RESET              (1 << 1)
+#define NFC_CTL_CE_ACT             (1 << 6)
 #define NFC_CTL_RAM_METHOD         (1 << 14)
 #define NFC_CTL_PAGE_SIZE_MASK     (0xf << 8)
 #define NFC_CTL_PAGE_SIZE(a)       ((fls(a) - 11) << 8)
@@ -83,6 +84,11 @@
 #define NFC_CMD_RNDOUTSTART        0xE0
 #define NFC_CMD_RNDOUT             0x05
 #define NFC_CMD_READSTART          0x30
+
+#define NFC_ADDR_LOW_PAGE(pg)		((pg & 0xFFFF) << 16)
+#define NFC_ADDR_HIGH_PAGE(pg)		((pg >> 16) & 0xFF)
+#define NFC_CMD_ADDR_CYCLES(cy)		(((cy - 1) << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADDR)
+#define NFC_ADDR_LOW_COL(col)		(col & 0xFFFF)
 
 struct nfc_config {
 	int page_size;
@@ -183,11 +189,12 @@ void nand_init(void)
 {
 	uint32_t val;
 
+void nand_init(void)
+{
 	board_nand_init();
 
-	val = readl(SUNXI_NFC_BASE + NFC_CTL);
 	/* enable and reset CTL */
-	writel(val | NFC_CTL_EN | NFC_CTL_RESET,
+	writel(NFC_CTL_EN | NFC_CTL_RESET,
 	       SUNXI_NFC_BASE + NFC_CTL);
 
 	if (!check_value_negated(SUNXI_NFC_BASE + NFC_CTL,
@@ -196,7 +203,10 @@ void nand_init(void)
 	}
 
 	/* reset NAND */
-	nand_exec_cmd(NFC_SEND_CMD1 | NFC_WAIT_FLAG | NAND_CMD_RESET);
+	if(nand_exec_cmd(NFC_SEND_CMD1 | NFC_WAIT_FLAG | NAND_CMD_RESET)){
+		printf("Error timeout waiting for nand reset\n");
+	}
+
 }
 
 static void nand_apply_config(const struct nfc_config *conf)
@@ -215,33 +225,29 @@ static void nand_apply_config(const struct nfc_config *conf)
 
 static int nand_load_page(const struct nfc_config *conf, u32 offs)
 {
-	int page = offs / conf->page_size;
-
-	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
-	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
-	       (NFC_CMD_READSTART << NFC_READ_CMD_OFFSET),
-	       SUNXI_NFC_BASE + NFC_RCMD_SET);
-	writel(((page & 0xFFFF) << 16), SUNXI_NFC_BASE + NFC_ADDR_LOW);
-	writel((page >> 16) & 0xFF, SUNXI_NFC_BASE + NFC_ADDR_HIGH);
-
-	return nand_exec_cmd(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD |
-			     NFC_SEND_ADDR | NFC_WAIT_FLAG |
-			     ((conf->addr_cycles - 1) << NFC_ADDR_NUM_OFFSET));
+	int page = offs / conf->page_size;	
+	/* Setup command 2 (30h) */
+	writel(0xE00530, SUNXI_NFC_BASE + NFC_RCMD_SET);
+	/* Setup C1, C2, R1, R2 address cycles */
+	writel(NFC_ADDR_LOW_PAGE(page), SUNXI_NFC_BASE + NFC_ADDR_LOW);
+	/* Setup R3 address cycle */
+	writel(NFC_ADDR_HIGH_PAGE(page), SUNXI_NFC_BASE + NFC_ADDR_HIGH);
+	/* Execute Read Page command */
+	return nand_exec_cmd(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_WAIT_FLAG | 
+				NFC_CMD_ADDR_CYCLES(conf->addr_cycles) | NFC_RAW_CMD );
 }
 
 static int nand_change_column(u16 column)
 {
 	int ret;
+	/* Setup command 2 (E0h) */
+	writel(0xE005E0, SUNXI_NFC_BASE + NFC_RCMD_SET);
+	/* Setup C1, C2 address cycles */
+	writel(NFC_ADDR_LOW_COL(column), SUNXI_NFC_BASE + NFC_ADDR_LOW);	
+	/* Execute Read Page command */
+	ret =  nand_exec_cmd(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD |
+					NFC_CMD_ADDR_CYCLES(2) | NFC_CMD_RNDOUT);
 
-	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
-	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
-	       (NFC_CMD_RNDOUTSTART << NFC_READ_CMD_OFFSET),
-	       SUNXI_NFC_BASE + NFC_RCMD_SET);
-	writel(column, SUNXI_NFC_BASE + NFC_ADDR_LOW);
-
-	ret = nand_exec_cmd(NFC_SEND_CMD1 | NFC_SEND_CMD2 | NFC_RAW_CMD |
-			    (1 << NFC_ADDR_NUM_OFFSET) | NFC_SEND_ADDR |
-			    NFC_CMD_RNDOUT);
 	if (ret)
 		return ret;
 
