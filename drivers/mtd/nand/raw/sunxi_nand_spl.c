@@ -185,9 +185,24 @@ static int nand_exec_cmd(u32 cmd)
 	return nand_wait_int();
 }
 
-void nand_init(void)
+static int nand_show_id(void)
 {
-	uint32_t val;
+	const u8 ids[] = {0x2c, 0x88, 0x04, 0x4b, 0xa9, 0x00, 0x00, 0x00};
+
+	int ret;
+	u16 address = 0;
+
+	writel(address, SUNXI_NFC_BASE + NFC_ADDR_LOW);
+
+	ret = nand_exec_cmd(NFC_WAIT_FLAG | NFC_SEND_CMD1 | 
+						NFC_DATA_TRANS | NFC_SEND_ADDR | NAND_CMD_READID);
+
+	if(memcmp(ids, (void*)(SUNXI_NFC_BASE + NFC_RAM0_BASE), 8) == 0){
+		printf("Found NAND: 29F64G08CBAAA\n");
+	}
+
+	return ret;
+}
 
 void nand_init(void)
 {
@@ -207,6 +222,9 @@ void nand_init(void)
 		printf("Error timeout waiting for nand reset\n");
 	}
 
+	writel(0x100, SUNXI_NFC_BASE + NFC_TIMING_CTL);
+	writel(0x74d, SUNXI_NFC_BASE + NFC_TIMING_CFG);
+	nand_show_id();	
 }
 
 static void nand_apply_config(const struct nfc_config *conf)
