@@ -275,14 +275,14 @@ static int nand_change_column(u16 column)
 	return 0;
 }
 
-static const int ecc_bytes[] = {32, 46, 54, 60, 74, 88, 102, 110, 116};
+static const int ecc_bytes[] = {24, 32, 46, 54, 60, 74, 88, 102, 110, 116};
 
 static int nand_read_page(const struct nfc_config *conf, u32 offs,
 			  void *dest, int len)
 {
 	int nsectors = len / conf->ecc_size;
 	u16 rand_seed = 0;
-	int oob_chunk_sz = ecc_bytes[conf->ecc_strength];
+	//int oob_chunk_sz = ecc_bytes[conf->ecc_strength];
 	int page = offs / conf->page_size;
 	u32 ecc_st;
 	int i;
@@ -298,7 +298,7 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 	/* Retrieve data from SRAM (PIO) */
 	for (i = 0; i < nsectors; i++) {
 		int data_off = i * conf->ecc_size;
-		int oob_off = conf->page_size + (i * oob_chunk_sz);
+		//int oob_off = conf->page_size + (i * oob_chunk_sz);
 		u8 *data = dest + data_off;
 
 		/* Clear ECC status and restart ECC engine */
@@ -318,15 +318,14 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 		 * Let the ECC engine consume the ECC bytes and possibly correct
 		 * the data.
 		 */
-		nand_change_column(oob_off);
-		nand_exec_cmd(NFC_DATA_TRANS | NFC_ECC_CMD);
+		//nand_change_column(oob_off);
+		//nand_exec_cmd(NFC_DATA_TRANS | NFC_ECC_CMD);
 
 		/* Get the ECC status */
-		ecc_st = readl(SUNXI_NFC_BASE + NFC_ECC_ST);
+		//ecc_st = readl(SUNXI_NFC_BASE + NFC_ECC_ST);
 
 		/* ECC error detected. */
-		if (ecc_st & 0xffff)
-			return -EIO;
+		//if (ecc_st & 0xffff) return -EIO;
 
 		/*
 		 * Return 1 if the first chunk is empty (needed for
@@ -340,8 +339,7 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 			      conf->ecc_size);
 
 		/* Stop the ECC engine */
-		writel(readl(SUNXI_NFC_BASE + NFC_ECC_CTL) & ~NFC_ECC_EN,
-		       SUNXI_NFC_BASE + NFC_ECC_CTL);
+		//writel(readl(SUNXI_NFC_BASE + NFC_ECC_CTL) & ~NFC_ECC_EN, SUNXI_NFC_BASE + NFC_ECC_CTL);
 
 		if (data_off + conf->ecc_size >= len)
 			break;
@@ -551,6 +549,16 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *dest)
 {
 	static struct nfc_config conf = { };
 	int ret;
+	
+	//printf("%s:reading from offset %08x, size %d\n", __func__, (unsigned int)offs, size);
+
+	conf.addr_cycles = 5;
+	conf.ecc_size = 1024;
+	conf.nseeds = 8;
+	conf.page_size = 8192;
+	conf.ecc_strength = 0;
+	conf.randomize = 0;
+	conf.valid = 1;
 
 	ret = nand_detect_config(&conf, offs, dest);
 	if (ret)
