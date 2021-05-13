@@ -570,6 +570,12 @@ static int spl_load_image(struct spl_image_info *spl_image,
 	bootdev.boot_device = loader->boot_device;
 	bootdev.boot_device_name = NULL;
 
+	printf("\nspl: load image\n"
+	        "  boot device info:\n"
+			"    name: %s\n"
+			"    boot device: %d\n\n",				
+			loader->name, loader->boot_device);		
+
 	ret = loader->load_image(spl_image, &bootdev);
 #ifdef CONFIG_SPL_LEGACY_IMAGE_CRC_CHECK
 	if (!ret && spl_image->dcrc_length) {
@@ -585,6 +591,17 @@ static int spl_load_image(struct spl_image_info *spl_image,
 	return ret;
 }
 
+static void print_boot_devices(u32 *spl_boot_list, int count){
+	
+	printf("Available loaders:\n");
+	for (int i = 0; i < count; i++) {
+		if(spl_boot_list[i] != BOOT_DEVICE_NONE){		
+			struct spl_image_loader *loader = spl_ll_find_loader(spl_boot_list[i]);
+			printf("  %s\n", loader->name);
+		}
+	}
+	printf("\n");
+}
 /**
  * boot_from_devices() - Try loading a booting U-Boot from a list of devices
  *
@@ -597,6 +614,8 @@ static int boot_from_devices(struct spl_image_info *spl_image,
 			     u32 spl_boot_list[], int count)
 {
 	int i;
+	
+	print_boot_devices(spl_boot_list, count);
 
 	for (i = 0; i < count && spl_boot_list[i] != BOOT_DEVICE_NONE; i++) {
 		struct spl_image_loader *loader;

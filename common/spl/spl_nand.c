@@ -99,6 +99,11 @@ static int spl_nand_load_element(struct spl_image_info *spl_image,
 		err = spl_parse_image_header(spl_image, header);
 		if (err)
 			return err;
+
+		debug("spl_nand: loading u-boot image from 0x%x, size %d, to 0x%p\n", 
+						offset, spl_image->size, 
+						(void*)spl_image->load_addr);
+
 		return nand_spl_load_image(offset, spl_image->size,
 					   (void *)(ulong)spl_image->load_addr);
 	}
@@ -113,9 +118,9 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 	int *dst __attribute__((unused));
 
 #ifdef CONFIG_SPL_NAND_SOFTECC
-	debug("spl: nand - using sw ecc\n");
+	debug("spl_nand: nand - using sw ecc\n");
 #else
-	debug("spl: nand - using hw ecc\n");
+	debug("spl_nand: nand - using hw ecc\n");
 #endif
 	nand_init();
 
